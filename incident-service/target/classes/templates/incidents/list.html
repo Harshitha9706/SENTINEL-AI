@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SENTINEL AI — Incident Directory</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        :root { --sidebar-bg: #0B1120; --main-bg: #0F172A; --card-bg: #1E293B; --border-color: #334155; --accent-blue: #3B82F6; }
+        body { background-color: var(--main-bg); color: #F8FAFC; font-family: system-ui, -apple-system, sans-serif; }
+        .sidebar { background-color: var(--sidebar-bg); min-height: 100vh; border-right: 1px solid var(--border-color); width: 260px; position: fixed; top: 0; left: 0; z-index: 1000; }
+        .sidebar .brand { padding: 1.25rem 1.5rem; font-size: 1.15rem; font-weight: 700; color: #FFF; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 0.5rem; }
+        .sidebar-menu { list-style: none; padding: 1rem 0.75rem; margin: 0; }
+        .sidebar-menu a { display: flex; align-items: center; gap: 0.75rem; padding: 0.7rem 1rem; color: #94A3B8; text-decoration: none; border-radius: 6px; font-size: 0.9rem; font-weight: 500; margin-bottom: 0.25rem; }
+        .sidebar-menu a:hover, .sidebar-menu a.active { background: #1E293B; color: #FFF; }
+        .sidebar-menu a.active { border-left: 3px solid var(--accent-blue); }
+        .main-content { margin-left: 260px; padding: 2rem 2.5rem; }
+        .card-custom { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; }
+        .table-custom { color: #F8FAFC; margin-bottom: 0; }
+        .table-custom th { background: rgba(15, 23, 42, 0.6); color: #94A3B8; border-bottom: 1px solid var(--border-color); font-size: 0.8rem; text-transform: uppercase; font-weight: 600; padding: 0.75rem 1rem; }
+        .table-custom td { border-bottom: 1px solid var(--border-color); padding: 0.85rem 1rem; font-size: 0.9rem; vertical-align: middle; }
+        .table-custom tr:hover td { background: #26334D; }
+        .badge-threat { background: rgba(239, 68, 68, 0.2); color: #F87171; border: 1px solid rgba(239, 68, 68, 0.4); }
+        .badge-high { background: rgba(245, 158, 11, 0.2); color: #FBBF24; border: 1px solid rgba(245, 158, 11, 0.4); }
+        .badge-low { background: rgba(16, 185, 129, 0.2); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.4); }
+        input, select { background-color: #0F172A !important; border-color: var(--border-color) !important; color: #FFF !important; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="brand">
+            <i class="bi bi-shield-shaded text-primary fs-4"></i>
+            <div>
+                <div>SENTINEL AI</div>
+                <div style="font-size: 0.65rem; color: #94A3B8; letter-spacing: 0.05em;">PUBLIC SAFETY HQ</div>
+            </div>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="/"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
+            <li><a href="/incidents/new"><i class="bi bi-plus-circle"></i> Report Incident</a></li>
+            <li><a href="/incidents" class="active"><i class="bi bi-search"></i> Incident Search</a></li>
+            <li><a href="/cases"><i class="bi bi-briefcase"></i> Case Management</a></li>
+            <li><a href="/analytics"><i class="bi bi-graph-up"></i> Pattern Analytics</a></li>
+            <li><a href="/resources"><i class="bi bi-person-badge"></i> Personnel &amp; Units</a></li>
+            <li><a href="/missing-persons"><i class="bi bi-person-x"></i> Missing Persons</a></li>
+            <li>
+                <a href="/alerts" class="d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-exclamation-triangle"></i> Alerts</span>
+                    <span th:if="${unackCount > 0}" class="badge bg-danger rounded-pill" th:text="${unackCount}">0</span>
+                </a>
+            </li>
+            <li><a href="/audit-logs"><i class="bi bi-journal-text"></i> Audit Logs</a></li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="fw-bold mb-1">Incident Management Registry</h2>
+                <div class="text-secondary small">Filterable master incident intake records with explainable AI scores</div>
+            </div>
+            <a href="/incidents/new" class="btn btn-primary fw-semibold"><i class="bi bi-plus-lg me-1"></i> Register New Incident</a>
+        </div>
+
+        <!-- Filter Bar -->
+        <form action="/incidents" method="get" class="card-custom p-3 mb-4">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label text-secondary small fw-semibold">Search Keywords</label>
+                    <input type="text" name="query" th:value="${searchQuery}" class="form-control" placeholder="Search description, location, category...">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-secondary small fw-semibold">Status Filter</label>
+                    <select name="status" class="form-select">
+                        <option value="ALL" th:selected="${selectedStatus == 'ALL'}">All Statuses</option>
+                        <option value="REPORTED" th:selected="${selectedStatus == 'REPORTED'}">REPORTED</option>
+                        <option value="IN_PROGRESS" th:selected="${selectedStatus == 'IN_PROGRESS'}">IN_PROGRESS</option>
+                        <option value="RESOLVED" th:selected="${selectedStatus == 'RESOLVED'}">RESOLVED</option>
+                        <option value="CLOSED" th:selected="${selectedStatus == 'CLOSED'}">CLOSED</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-secondary small fw-semibold">AI Priority Filter</label>
+                    <select name="priority" class="form-select">
+                        <option value="ALL" th:selected="${selectedPriority == 'ALL'}">All Priorities</option>
+                        <option value="HIGH" th:selected="${selectedPriority == 'HIGH'}">HIGH (&ge;75 pts)</option>
+                        <option value="MEDIUM" th:selected="${selectedPriority == 'MEDIUM'}">MEDIUM (45-74 pts)</option>
+                        <option value="LOW" th:selected="${selectedPriority == 'LOW'}">LOW (&lt;45 pts)</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-filter"></i> Filter</button>
+                    <a href="/incidents" class="btn btn-outline-secondary"><i class="bi bi-arrow-counterclockwise"></i></a>
+                </div>
+            </div>
+        </form>
+
+        <!-- Incidents Table -->
+        <div class="card-custom">
+            <div class="table-responsive">
+                <table class="table table-custom">
+                    <thead>
+                        <tr>
+                            <th>Incident #</th>
+                            <th>Category</th>
+                            <th>Location</th>
+                            <th>Reported At</th>
+                            <th>Reported Severity</th>
+                            <th>Immediate Threat</th>
+                            <th>AI Priority Assessment</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${#lists.isEmpty(incidents)}">
+                            <td colspan="9" class="text-center text-secondary py-4">No matching incidents found in database.</td>
+                        </tr>
+                        <tr th:each="inc : ${incidents}">
+                            <td><a th:href="@{'/incidents/' + ${inc.id}}" class="text-white fw-bold text-decoration-none" th:text="${inc.incidentNumber}">INC-001</a></td>
+                            <td th:text="${inc.category}">Robbery</td>
+                            <td th:text="${inc.location}">Sector 4 Plaza</td>
+                            <td th:text="${#temporals.format(inc.reportedAt, 'yyyy-MM-dd HH:mm')}">2026-10-10 11:00</td>
+                            <td>
+                                <span th:classappend="${inc.reportedSeverity == 'CRITICAL' ? 'badge bg-danger' : (inc.reportedSeverity == 'HIGH' ? 'badge bg-warning text-dark' : 'badge bg-info text-dark')}" th:text="${inc.reportedSeverity}">HIGH</span>
+                            </td>
+                            <td>
+                                <span th:if="${inc.immediateThreat}" class="badge bg-danger text-white"><i class="bi bi-exclamation-octagon-fill me-1"></i> ACTIVE</span>
+                                <span th:unless="${inc.immediateThreat}" class="badge bg-secondary">NO</span>
+                            </td>
+                            <td>
+                                <div th:if="${inc.aiAssessmentStatus == 'COMPLETED'}">
+                                    <span th:classappend="${inc.priorityLevel == 'HIGH' ? 'badge badge-threat' : (inc.priorityLevel == 'MEDIUM' ? 'badge badge-high' : 'badge badge-low')}"
+                                          th:text="${inc.priorityLevel}">HIGH</span>
+                                    <span class="small text-secondary ms-1" th:text="${inc.priorityScore + ' pts'}">85.0 pts</span>
+                                </div>
+                                <span th:if="${inc.aiAssessmentStatus == 'UNAVAILABLE'}" class="badge bg-secondary">AI UNAVAILABLE</span>
+                                <span th:if="${inc.aiAssessmentStatus == 'PENDING'}" class="badge bg-primary">PENDING</span>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary" th:text="${inc.status}">REPORTED</span>
+                            </td>
+                            <td>
+                                <a th:href="@{'/incidents/' + ${inc.id}}" class="btn btn-sm btn-primary py-0">Details &rarr;</a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

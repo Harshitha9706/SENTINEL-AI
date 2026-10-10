@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SENTINEL AI — Operations Command Dashboard</title>
+    <!-- Bootstrap 5 CSS & Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        :root {
+            --sidebar-bg: #0B1120;
+            --main-bg: #0F172A;
+            --card-bg: #1E293B;
+            --border-color: #334155;
+            --accent-blue: #3B82F6;
+        }
+        body { background-color: var(--main-bg); color: #F8FAFC; font-family: system-ui, -apple-system, sans-serif; overflow-x: hidden; }
+        .sidebar { background-color: var(--sidebar-bg); min-height: 100vh; border-right: 1px solid var(--border-color); width: 260px; position: fixed; top: 0; left: 0; z-index: 1000; }
+        .sidebar .brand { padding: 1.25rem 1.5rem; font-size: 1.15rem; font-weight: 700; color: #FFF; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 0.5rem; }
+        .sidebar-menu { list-style: none; padding: 1rem 0.75rem; margin: 0; }
+        .sidebar-menu a { display: flex; align-items: center; gap: 0.75rem; padding: 0.7rem 1rem; color: #94A3B8; text-decoration: none; border-radius: 6px; font-size: 0.9rem; font-weight: 500; margin-bottom: 0.25rem; transition: all 0.15s ease; }
+        .sidebar-menu a:hover, .sidebar-menu a.active { background: #1E293B; color: #FFF; }
+        .sidebar-menu a.active { border-left: 3px solid var(--accent-blue); }
+        .main-content { margin-left: 260px; padding: 2rem 2.5rem; }
+        .card-custom { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; }
+        .kpi-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.25rem; position: relative; overflow: hidden; }
+        .kpi-card::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 4px; }
+        .kpi-blue::before { background: #3B82F6; }
+        .kpi-red::before { background: #EF4444; }
+        .kpi-amber::before { background: #F59E0B; }
+        .kpi-purple::before { background: #8B5CF6; }
+        .table-custom { color: #F8FAFC; margin-bottom: 0; }
+        .table-custom th { background: rgba(15, 23, 42, 0.6); color: #94A3B8; border-bottom: 1px solid var(--border-color); font-size: 0.8rem; text-transform: uppercase; font-weight: 600; padding: 0.75rem 1rem; }
+        .table-custom td { border-bottom: 1px solid var(--border-color); padding: 0.85rem 1rem; font-size: 0.9rem; vertical-align: middle; }
+        .table-custom tr:hover td { background: #26334D; }
+        .badge-threat { background: rgba(239, 68, 68, 0.2); color: #F87171; border: 1px solid rgba(239, 68, 68, 0.4); }
+        .badge-high { background: rgba(245, 158, 11, 0.2); color: #FBBF24; border: 1px solid rgba(245, 158, 11, 0.4); }
+        .badge-med { background: rgba(59, 130, 246, 0.2); color: #60A5FA; border: 1px solid rgba(59, 130, 246, 0.4); }
+        .badge-low { background: rgba(16, 185, 129, 0.2); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.4); }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="brand">
+            <i class="bi bi-shield-shaded text-primary fs-4"></i>
+            <div>
+                <div>SENTINEL AI</div>
+                <div style="font-size: 0.65rem; color: #94A3B8; letter-spacing: 0.05em;">PUBLIC SAFETY HQ</div>
+            </div>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="/" class="active"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
+            <li><a href="/incidents/new"><i class="bi bi-plus-circle"></i> Report Incident</a></li>
+            <li><a href="/incidents"><i class="bi bi-search"></i> Incident Search</a></li>
+            <li><a href="/cases"><i class="bi bi-briefcase"></i> Case Management</a></li>
+            <li><a href="/analytics"><i class="bi bi-graph-up"></i> Pattern Analytics</a></li>
+            <li><a href="/resources"><i class="bi bi-person-badge"></i> Personnel &amp; Units</a></li>
+            <li><a href="/missing-persons"><i class="bi bi-person-x"></i> Missing Persons</a></li>
+            <li>
+                <a href="/alerts" class="d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-exclamation-triangle"></i> Alerts</span>
+                    <span th:if="${unackCount > 0}" class="badge bg-danger rounded-pill" th:text="${unackCount}">0</span>
+                </a>
+            </li>
+            <li><a href="/audit-logs"><i class="bi bi-journal-text"></i> Audit Logs</a></li>
+        </ul>
+        <div style="position: absolute; bottom: 1rem; left: 1rem; right: 1rem; padding: 0.75rem; background: rgba(15, 23, 42, 0.6); border-radius: 6px; font-size: 0.75rem; color: #94A3B8;">
+            <div class="d-flex align-items-center gap-2">
+                <span class="spinner-grow spinner-grow-sm text-success" role="status"></span>
+                <span>Service A :8080 Active</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="fw-bold mb-1">Operations Command Center</h2>
+                <div class="text-secondary small">Real-time incident ingestion, explainable AI priority triage, and multi-agency response dispatch</div>
+            </div>
+            <a href="/incidents/new" class="btn btn-primary fw-semibold px-3 py-2"><i class="bi bi-plus-lg me-1"></i> Register New Incident</a>
+        </div>
+
+        <!-- KPI Grid -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="kpi-card kpi-blue">
+                    <div class="text-secondary small text-uppercase fw-semibold">Total Ingested Incidents</div>
+                    <div class="fs-2 fw-bold text-white my-1" th:text="${summary.totalIncidents}">0</div>
+                    <div class="small text-secondary d-flex justify-content-between">
+                        <span>Database Aggregated</span>
+                        <a href="/incidents" class="text-primary text-decoration-none">View Registry &rarr;</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-card kpi-red">
+                    <div class="text-secondary small text-uppercase fw-semibold">High Priority Threats</div>
+                    <div class="fs-2 fw-bold text-danger my-1" th:text="${summary.highPriorityIncidents}">0</div>
+                    <div class="small text-secondary d-flex justify-content-between">
+                        <span>AI Triage (&ge;75 pts)</span>
+                        <span class="badge bg-danger-subtle text-danger">Immediate Action</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-card kpi-amber">
+                    <div class="text-secondary small text-uppercase fw-semibold">Active Unacknowledged Alerts</div>
+                    <div class="fs-2 fw-bold text-warning my-1" th:text="${summary.unacknowledgedAlerts}">0</div>
+                    <div class="small text-secondary d-flex justify-content-between">
+                        <span>Pending Review</span>
+                        <a href="/alerts" class="text-warning text-decoration-none">Review Feed &rarr;</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-card kpi-purple">
+                    <div class="text-secondary small text-uppercase fw-semibold">Open Investigation Cases</div>
+                    <div class="fs-2 fw-bold text-white my-1" th:text="${summary.openCases}">0</div>
+                    <div class="small text-secondary d-flex justify-content-between">
+                        <span>Assigned to CID</span>
+                        <a href="/cases" class="text-info text-decoration-none">Manage Cases &rarr;</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2nd Row KPI Mini Metrics -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="card-custom p-3 d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="text-secondary small">Available Emergency Units</div>
+                        <div class="fs-4 fw-bold text-success" th:text="${summary.availableResources + ' Units'}">0 Units</div>
+                    </div>
+                    <i class="bi bi-truck fs-2 text-secondary"></i>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card-custom p-3 d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="text-secondary small">On-Duty Field Personnel</div>
+                        <div class="fs-4 fw-bold text-primary" th:text="${summary.onDutyPersonnel + ' Officers'}">0 Officers</div>
+                    </div>
+                    <i class="bi bi-person-badge fs-2 text-secondary"></i>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card-custom p-3 d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="text-secondary small">Active Missing Persons</div>
+                        <div class="fs-4 fw-bold text-warning" th:text="${summary.activeMissingPersons + ' Active'}">0 Active</div>
+                    </div>
+                    <i class="bi bi-person-x fs-2 text-secondary"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Dashboard Tables -->
+        <div class="row g-4 mb-4">
+            <!-- Left: Recent Incidents -->
+            <div class="col-lg-8">
+                <div class="card-custom">
+                    <div class="p-3 border-bottom border-secondary border-opacity-25 d-flex justify-content-between align-items-center">
+                        <span class="fw-semibold">Recent Ingested Incidents</span>
+                        <a href="/incidents" class="text-primary small text-decoration-none">View Full Directory &rarr;</a>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-custom">
+                            <thead>
+                                <tr>
+                                    <th>Incident #</th>
+                                    <th>Category</th>
+                                    <th>Location</th>
+                                    <th>Reported Severity</th>
+                                    <th>AI Priority</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:if="${#lists.isEmpty(recentIncidents)}">
+                                    <td colspan="7" class="text-center text-secondary py-4">No incidents registered yet. <a href="/incidents/new" class="text-primary">Register first incident</a>.</td>
+                                </tr>
+                                <tr th:each="inc : ${recentIncidents}">
+                                    <td><a th:href="@{'/incidents/' + ${inc.id}}" class="text-white fw-semibold text-decoration-none" th:text="${inc.incidentNumber}">INC-001</a></td>
+                                    <td th:text="${inc.category}">Robbery</td>
+                                    <td th:text="${inc.location}">Sector 4</td>
+                                    <td>
+                                        <span th:classappend="${inc.reportedSeverity == 'CRITICAL' ? 'badge bg-danger' : (inc.reportedSeverity == 'HIGH' ? 'badge bg-warning text-dark' : 'badge bg-info text-dark')}" th:text="${inc.reportedSeverity}">HIGH</span>
+                                    </td>
+                                    <td>
+                                        <span th:if="${inc.aiAssessmentStatus == 'COMPLETED'}" 
+                                              th:classappend="${inc.priorityLevel == 'HIGH' ? 'badge badge-threat' : (inc.priorityLevel == 'MEDIUM' ? 'badge badge-high' : 'badge badge-low')}"
+                                              th:text="${inc.priorityLevel + ' (' + inc.priorityScore + ' pts)'}">HIGH</span>
+                                        <span th:if="${inc.aiAssessmentStatus == 'UNAVAILABLE'}" class="badge bg-secondary">AI UNAVAILABLE</span>
+                                        <span th:if="${inc.aiAssessmentStatus == 'PENDING'}" class="badge bg-primary">PENDING</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary" th:text="${inc.status}">REPORTED</span>
+                                    </td>
+                                    <td><a th:href="@{'/incidents/' + ${inc.id}}" class="btn btn-sm btn-outline-primary py-0">Details</a></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Priority Alerts Feed -->
+            <div class="col-lg-4">
+                <div class="card-custom">
+                    <div class="p-3 border-bottom border-secondary border-opacity-25 d-flex justify-content-between align-items-center">
+                        <span class="fw-semibold text-warning"><i class="bi bi-bell-fill me-1"></i> Priority Alert Stream</span>
+                        <a href="/alerts" class="text-warning small text-decoration-none">All Alerts</a>
+                    </div>
+                    <div class="p-3">
+                        <div th:if="${#lists.isEmpty(unackAlerts)}" class="text-center text-secondary py-3">
+                            <i class="bi bi-check2-circle fs-3 text-success d-block mb-1"></i>
+                            No pending alerts.
+                        </div>
+                        <div th:each="alert : ${unackAlerts}" class="p-2 mb-2 rounded bg-dark bg-opacity-50 border border-secondary border-opacity-25 d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="badge" th:classappend="${alert.alertLevel == 'CRITICAL' ? 'bg-danger' : 'bg-warning text-dark'}" th:text="${alert.alertLevel}">CRITICAL</span>
+                                <div class="small text-white mt-1" th:text="${alert.message}">Alert message</div>
+                                <div style="font-size: 0.7rem; color: #94A3B8;" th:text="${#temporals.format(alert.createdAt, 'HH:mm:ss')}">Time</div>
+                            </div>
+                            <form th:action="@{'/alerts/' + ${alert.id} + '/acknowledge'}" method="post">
+                                <button type="submit" class="btn btn-sm btn-outline-light ms-2">Ack</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Historical Pattern Demonstration Analytics -->
+        <div class="card-custom p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h5 class="fw-bold mb-0">📊 Historical Pattern Analytics &amp; Recurrence Benchmarks</h5>
+                    <div class="text-secondary small">Aggregated from synthetic demonstration repository used by AI Scoring Engine for factor \(R\)</div>
+                </div>
+                <span class="badge bg-secondary">Simulated Benchmark Data</span>
+            </div>
+            <div class="row g-3">
+                <div th:each="pattern : ${historicalPatterns}" class="col-md-2 col-sm-4">
+                    <div class="p-3 rounded bg-dark bg-opacity-50 border border-secondary border-opacity-25 text-center">
+                        <div class="small text-secondary text-truncate" th:text="${pattern[0]}">Category</div>
+                        <div class="fs-4 fw-bold text-white mt-1" th:text="${pattern[1]} + ' cases'">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
